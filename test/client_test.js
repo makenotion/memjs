@@ -44,17 +44,15 @@ test('GetNotFound', function(t) {
 
   var client = new MemJS.Client([dummyServer]);
   var assertor = function(val, flags) {
-    console.log('assertator')
     t.equal(null, val);
     t.equal(null, flags);
     t.equal(1, n, 'Ensure get is called');
-    console.log('t.end is called');
-    t.end();
   };
   client.get('hello', assertor);
   n = 0;
   return client.get('hello').then(function(res) {
     assertor(null, res.value, res.extras);
+    t.end();
   });
 });
 
