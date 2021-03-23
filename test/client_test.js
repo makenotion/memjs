@@ -1,7 +1,9 @@
 var test = require('tap').test;
+
 var errors = require('../lib/memjs/protocol').errors;
 var MemJS = require('../');
 var constants = require('../lib/memjs/constants');
+var _ = require('lodash');
 
 test('GetSuccessful', function(t) {
   var n = 0;
@@ -42,9 +44,11 @@ test('GetNotFound', function(t) {
 
   var client = new MemJS.Client([dummyServer]);
   var assertor = function(val, flags) {
+    console.log('assertator')
     t.equal(null, val);
     t.equal(null, flags);
     t.equal(1, n, 'Ensure get is called');
+    console.log('t.end is called');
     t.end();
   };
   client.get('hello', assertor);
@@ -93,7 +97,7 @@ test('GetSerializer', function(t) {
   });
 });
 
-test('GetMultiSuccessful', function(t) {
+test('GetMultiSuccessful_SingleBackend', function(t) {
   var n = 0;
   var dummyServer = new MemJS.Server('dummyServer');
   dummyServer.write = function(requestBuf) {
@@ -135,6 +139,77 @@ test('GetMultiSuccessful', function(t) {
     assertor(null, res.values, res.flags);
   });
 });
+
+// test('GetMultiSuccessful_MultiBackend', function(t) {
+//   var n = 0;
+//   var dummyServer1 = new MemJS.Server('dummyServer1');
+//   var dummyServer2 = new MemJS.Server('dummyServer2');
+//   var servers = [dummyServer1, dummyServer2];
+
+//   var client = new MemJS.Client(servers);
+
+//   var responseMap = {
+//     'hello1': 'world1',
+//     'hello2': 'world2',
+//     'hello3': 'world3',
+//     'hello4': 'world4',
+//   };
+
+//   var responseKeysByServerIndex = _.groupBy(
+//     Object.keys(responseMap,
+//       function(key) { return client.serverIndex(key); }
+//     )
+//   );
+
+//   // make sure keys are distributed amongst our two servers
+//   t.equal(Object.keys(responseKeysByServerIndex).length, 2);
+
+//   function makeDummyServerResponder(serverIndex) {
+//     return function(requestBuf) {
+//       var requests = MemJS.Utils.parseMessages(requestBuf);
+//       t.equal(requests.length, responseKeysByServerIndex[serverIndex].length + 1);
+
+//       var server = servers[servers];
+
+//       function checkAndRespond(request, key, value) {
+//         t.equal(constants.OP_GETKQ, request.header.opcode);
+
+//         server.respond(
+//           {header: {status: 0, opaque: request.header.opaque, opcode: request.header.opcode},
+//             key: key, val: value, extras: 'flagshere'});
+//       }
+
+//       for (var requestIndex in requests) {
+//         var key = requests[requestIndex].key.toString();
+//         checkAndRespond(requests[requestIndex], key, responseMap[key]);
+//       }
+
+//       t.equal(constants.OP_NO_OP, requests[requests.length - 1].header.opcode);
+//       server.respond(
+//         {header: {status: 0, opaque: requests[requests.length - 1].header.opaque, opcode: requests[3].header.opcode}});
+//     };
+//   }
+
+//   servers[0].write = makeDummyServerResponder(0);
+//   servers[1].write = makeDummyServerResponder(1);
+
+//   var assertor = function(err, val, flags) {
+//     t.deepEqual({
+//       hello1: 'world1',
+//       hello2: 'world2',
+//       hello3: 'world3',
+//       hello4: 'world4',
+//     }, val);
+//     t.false(flags);
+//     t.equal(null, err);
+//     t.equal(1, n, 'Ensure getMulti is called');
+//   };
+//   client.getMulti(['hello1', 'hello2', 'hello3', 'hello4'], assertor);
+//   n = 0;
+//   return client.getMulti(['hello1', 'hello2', 'hello3', 'hello4']).then(function(res) {
+//     assertor(null, res.values, res.flags);
+//   });
+// });
 
 test('GetMultiSuccessfulWithMissingKeys', function(t) {
   var n = 0;
