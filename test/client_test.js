@@ -5,6 +5,13 @@ var errors = require('../lib/memjs/protocol').errors;
 var MemJS = require('../');
 var constants = require('../lib/memjs/constants');
 
+function testAllCallbacksEmpty(t, server) {
+  t.deepEqual(Object.keys(server.responseCallbacks).length, 0);
+  t.deepEqual(Object.keys(server.errorCallbacks).length, 0);
+
+  t.deepEqual(server.requestTimeouts, []);
+}
+
 test('GetSuccessful', function(t) {
   var n = 0;
   var dummyServer = new MemJS.Server('dummyServer');
@@ -95,7 +102,7 @@ test('GetSerializer', function(t) {
   });
 });
 
-test('GetMultiSuccessful_SingleBackend', function(t) {
+tap.only('GetMultiSuccessful_SingleBackend', function(t) {
   var n = 0;
   var dummyServer = new MemJS.Server('dummyServer');
   dummyServer.write = function(requestBuf) {
@@ -132,6 +139,8 @@ test('GetMultiSuccessful_SingleBackend', function(t) {
     t.equal(1, n, 'Ensure getMulti is called');
   };
   client.getMulti(['hello1', 'hello2', 'hello3'], assertor);
+  testAllCallbacksEmpty(t, dummyServer);
+
   n = 0;
   return client.getMulti(['hello1', 'hello2', 'hello3']).then(function(res) {
     assertor(null, res.values, res.flags);
@@ -171,7 +180,7 @@ function makeDummyMultiGetServerResponder(t, responseMap, serverName) {
   return server;
 }
 
-tap.only('GetMultiSuccessful_MultiBackend', function(t) {
+test('GetMultiSuccessful_MultiBackend', function(t) {
   // the mappings from key to server were computer by just manually running the default hash on them
 
   var dummyServer1 = makeDummyMultiGetServerResponder(t, {
@@ -197,12 +206,15 @@ tap.only('GetMultiSuccessful_MultiBackend', function(t) {
     t.equal(null, err);
   };
   client.getMulti(['hello1', 'hello2', 'hello3', 'hello4'], assertor);
+  testAllCallbacksEmpty(t, dummyServer1);
+  testAllCallbacksEmpty(t, dummyServer2);
+
   return client.getMulti(['hello1', 'hello2', 'hello3', 'hello4']).then(function(res) {
     assertor(null, res.values, res.flags);
   });
 });
 
-tap.only('GetMultiSuccessful_MissingKeys_MultiBackend', function(t) {
+test('GetMultiSuccessful_MissingKeys_MultiBackend', function(t) {
   // the mappings from key to server were computed by just manually running the default hash on them
   var dummyServer1 = makeDummyMultiGetServerResponder(t, {
     'hello2': undefined,
@@ -226,12 +238,15 @@ tap.only('GetMultiSuccessful_MissingKeys_MultiBackend', function(t) {
     t.equal(null, err);
   };
   client.getMulti(['hello1', 'hello2', 'hello3', 'hello4'], assertor);
+  testAllCallbacksEmpty(t, dummyServer1);
+  testAllCallbacksEmpty(t, dummyServer2);
+
   return client.getMulti(['hello1', 'hello2', 'hello3', 'hello4']).then(function(res) {
     assertor(null, res.values, res.flags);
   });
 });
 
-tap.only('GetMultiError_MultiBackend', function(t) {
+test('GetMultiError_MultiBackend', function(t) {
   // the mappings from key to server were computed by just manually running the default hash on them
   var dummyServer1 = makeDummyMultiGetServerResponder(t, {
     'hello2': undefined,
@@ -253,6 +268,8 @@ tap.only('GetMultiError_MultiBackend', function(t) {
     t.equal('This is an expected error.', err.message);
   };
   client.getMulti(['hello1', 'hello2', 'hello3', 'hello4'], assertor);
+  testAllCallbacksEmpty(t, dummyServer1);
+  testAllCallbacksEmpty(t, dummyServer2);
 
   return client.getMulti(['hello1', 'hello2', 'hello3', 'hello4']).catch(function(err) {
     assertor(err);
@@ -277,6 +294,7 @@ test('GetMultiSuccessfulWithMissingKeys', function(t) {
     t.equal(null, err);
   };
   client.getMulti(['hello1', 'hello2', 'hello3'], assertor);
+  testAllCallbacksEmpty(t, dummyServer);
   return client.getMulti(['hello1', 'hello2', 'hello3']).then(function(res) {
     assertor(null, res.values, res.flags);
   });
@@ -306,6 +324,8 @@ test('GetMultiError', function(t) {
     t.equal('This is an expected error.', err.message);
   };
   client.getMulti(['hello1', 'hello2', 'hello3'], assertor);
+  testAllCallbacksEmpty(t, dummyServer);
+
   return client.getMulti(['hello1', 'hello2', 'hello3']).catch(function(err) {
     assertor(err);
     return true;
