@@ -27,9 +27,6 @@
     "bench": "NODE_PATH=lib/memjs/ node bench/memjs.js",
     "bench-timers": "NODE_PATH=lib/memjs/ node bench/timers.js"
   },
-  "dependencies": {
-    "hashring": "^3.2.0"
-  },
   "devDependencies": {
     "benchmark": "^2.1.4",
     "docco": "^0.8.0",

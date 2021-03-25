@@ -173,13 +173,14 @@ function makeDummyMultiGetServerResponder(t, responseMap, serverName) {
 
 tap.only('GetMultiSuccessful_MultiBackend', function(t) {
   // the mappings from key to server were computer by just manually running the default hash on them
+
   var dummyServer1 = makeDummyMultiGetServerResponder(t, {
-    'hello1': 'world1',
     'hello2': 'world2',
-    'hello3': 'world3',
+    'hello4': 'world4',
   }, 'dummyServer1');
   var dummyServer2 = makeDummyMultiGetServerResponder(t, {
-    'hello4': 'world4',
+    'hello1': 'world1',
+    'hello3': 'world3',
   }, 'dummyServer2');
   var servers = [dummyServer1, dummyServer2];
 
@@ -204,12 +205,12 @@ tap.only('GetMultiSuccessful_MultiBackend', function(t) {
 tap.only('GetMultiSuccessful_MissingKeys_MultiBackend', function(t) {
   // the mappings from key to server were computed by just manually running the default hash on them
   var dummyServer1 = makeDummyMultiGetServerResponder(t, {
-    'hello1': 'world1',
     'hello2': undefined,
-    'hello3': 'world3',
+    'hello4': 'world4',
   }, 'dummyServer1');
   var dummyServer2 = makeDummyMultiGetServerResponder(t, {
-    'hello4': 'world4',
+    'hello1': 'world1',
+    'hello3': 'world3',
   }, 'dummyServer2');
   var servers = [dummyServer1, dummyServer2];
 
@@ -233,12 +234,12 @@ tap.only('GetMultiSuccessful_MissingKeys_MultiBackend', function(t) {
 tap.only('GetMultiError_MultiBackend', function(t) {
   // the mappings from key to server were computed by just manually running the default hash on them
   var dummyServer1 = makeDummyMultiGetServerResponder(t, {
-    'hello1': 'world1',
     'hello2': undefined,
-    'hello3': 'world3',
+    'hello4': 'world4',
   }, 'dummyServer1');
   var dummyServer2 = makeDummyMultiGetServerResponder(t, {
-    'hello4': 'world4',
+    'hello1': 'world1',
+    'hello3': 'world3'
   }, 'dummyServer2');
   dummyServer2.write = function() {
     dummyServer2.error({message: 'This is an expected error.'});
