@@ -166,12 +166,12 @@ export class Client {
    */
   getMulti<Keys extends string>(
     keys: Keys[]
-  ): Promise<{ value: { [K in Keys]?: Buffer | null }; flags: Buffer | null }>;
+  ): Promise<{ values: { [K in Keys]?: Buffer | null }; flags: Buffer | null }>;
   getMulti<Keys extends string>(
     keys: Keys[],
     callback: (
       err: Error | null,
-      value: { [K in Keys]: Buffer | null } | null,
+      values: { [K in Keys]: Buffer | null } | null,
       flags: Buffer | null
     ) => void
   ): void;
@@ -563,10 +563,10 @@ export class Client {
    * @param keys
    * @param callback
    */
-    versionAll(): Promise<{ value: Record<string, string>; flags: Buffer | null }>;
+    versionAll(): Promise<{ values: Record<string, string>; flags: Buffer | null }>;
     versionAll(callback: (
       err: Error | null,
-      value: Record<string, string>,
+      values: Record<string, string>,
       flags: Buffer | null
     ) => void): void
 }

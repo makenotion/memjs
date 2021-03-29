@@ -143,7 +143,7 @@ tap.only('GetMultiSuccessful_SingleBackend', function(t) {
 
   n = 0;
   return client.getMulti(['hello1', 'hello2', 'hello3']).then(function(res) {
-    assertor(null, res.value, res.flags);
+    assertor(null, res.values, res.flags);
   });
 });
 
@@ -210,7 +210,7 @@ test('GetMultiSuccessful_MultiBackend', function(t) {
   testAllCallbacksEmpty(t, dummyServer2);
 
   return client.getMulti(['hello1', 'hello2', 'hello3', 'hello4']).then(function(res) {
-    assertor(null, res.value, res.flags);
+    assertor(null, res.values, res.flags);
   });
 });
 
@@ -242,7 +242,7 @@ test('GetMultiSuccessful_MissingKeys_MultiBackend', function(t) {
   testAllCallbacksEmpty(t, dummyServer2);
 
   return client.getMulti(['hello1', 'hello2', 'hello3', 'hello4']).then(function(res) {
-    assertor(null, res.value, res.flags);
+    assertor(null, res.values, res.flags);
   });
 });
 
@@ -296,7 +296,7 @@ test('GetMultiSuccessfulWithMissingKeys', function(t) {
   client.getMulti(['hello1', 'hello2', 'hello3'], assertor);
   testAllCallbacksEmpty(t, dummyServer);
   return client.getMulti(['hello1', 'hello2', 'hello3']).then(function(res) {
-    assertor(null, res.value, res.flags);
+    assertor(null, res.values, res.flags);
   });
 });
 
@@ -1195,7 +1195,7 @@ test('VersionAllSuccessful',  function(t) {
   const dummyServer3 = makeDummyVersionServer(t, 'dummyServer3', '3.0.0');
 
   var client = new MemJS.Client([dummyServer1, dummyServer2, dummyServer3]);
-  var assertor = function(err, val, flags) {
+  var assertor = function(err, val) {
     t.deepEqual({
       'dummyServer1:undefined': '1.0.0',
       'dummyServer2:undefined': '2.0.0',
@@ -1207,7 +1207,7 @@ test('VersionAllSuccessful',  function(t) {
   client.versionAll(assertor);
 
   return client.versionAll().then(function(res) {
-    assertor(null, res.value, res.flags);
+    assertor(null, res.values, res.flags);
   });
 });
 
