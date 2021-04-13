@@ -241,12 +241,12 @@ class Client<Value = MaybeBuffer, Extras = MaybeBuffer> {
     this.incrSeq();
     const request = makeRequestBuffer(constants.OP_GET, key, "", "", this.seq);
     const response = await this.performPromise(key, request, this.seq);
-    switch (response!.header.status) {
+    switch (response.header.status) {
       case ResponseStatus.SUCCESS:
         const deserialized = this.serializer.deserialize(
-          response!.header.opcode,
-          response!.val,
-          response!.extras
+          response.header.opcode,
+          response.val,
+          response.extras
         );
         return { ...deserialized, cas: response.header.cas };
       case ResponseStatus.KEY_NOT_FOUND:
