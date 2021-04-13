@@ -617,12 +617,16 @@ test("SetError", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  mustReject(t, client.set("hello", "world"), function (err: Error | null) {
-    t.notEqual(null, err);
-    t.equal("This is an expected error.", err?.message);
-    t.equal(2, n, "Ensure set is retried once");
-    t.end();
-  });
+  return mustReject(
+    t,
+    client.set("hello", "world"),
+    function (err: Error | null) {
+      t.notEqual(null, err);
+      t.equal("This is an expected error.", err?.message);
+      t.equal(2, n, "Ensure set is retried once");
+      t.end();
+    }
+  );
 });
 
 test("SetError", function (t) {
@@ -642,7 +646,9 @@ test("SetError", function (t) {
   };
 
   const client = makeClient([dummyServer], { retries: 2 });
-  mustReject(t, client.set("hello", "world", {}), function (err /*, val */) {
+  return mustReject(t, client.set("hello", "world", {}), function (
+    err /*, val */
+  ) {
     t.equal(2, n, "Ensure set is retried once");
     t.ok(err, "Ensure callback called with error");
     t.equal("This is an expected error.", err?.message);
@@ -1088,18 +1094,13 @@ test("DecrementSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.decrement(
-    "number-decrement-test",
-    5,
-    {},
-    function (err: Error | null, success, val) {
+  return client
+    .decrement("number-decrement-test", 5, {})
+    .then(function ({ success, value: val }) {
       t.equal(true, success);
       t.equal(6, val);
-      t.equal(null, err);
       t.equal(1, n, "Ensure decr is called");
-      t.end();
-    }
-  );
+    });
 });
 
 test("DecrementSuccessfulWithoutOption", function (t) {
@@ -1127,18 +1128,14 @@ test("DecrementSuccessfulWithoutOption", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.decrement(
-    "number-decrement-test",
-    5,
-    {},
-    function (err: Error | null, success, val) {
+  client
+    .decrement("number-decrement-test", 5, {})
+    .then(function ({ success, value: val }) {
       t.equal(true, success);
       t.equal(6, val);
-      t.equal(null, err);
       t.equal(1, n, "Ensure decr is called");
       t.end();
-    }
-  );
+    });
 });
 
 test("AppendSuccessful", function (t) {
@@ -1155,8 +1152,7 @@ test("AppendSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer], { expires: 1024 });
-  client.append("hello", "world", function (err: Error | null, val) {
-    t.equal(null, err);
+  client.append("hello", "world").then(function (val) {
     t.equal(true, val);
     t.equal(1, n, "Ensure append is called");
     t.end();
@@ -1177,8 +1173,7 @@ test("AppendKeyDNE", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.append("hello", "world", function (err: Error | null, val) {
-    t.equal(null, err);
+  client.append("hello", "world").then(function (val) {
     t.equal(false, val);
     t.equal(1, n, "Ensure append is called");
     t.end();
@@ -1199,8 +1194,7 @@ test("PrependSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer], { expires: 1024 });
-  client.prepend("hello", "world", function (err: Error | null, val) {
-    t.equal(null, err);
+  client.prepend("hello", "world").then(function (val) {
     t.equal(true, val);
     t.equal(1, n, "Ensure prepend is called");
     t.end();
@@ -1221,8 +1215,7 @@ test("PrependKeyDNE", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.prepend("hello", "world", function (err: Error | null, val) {
-    t.equal(null, err);
+  client.prepend("hello", "world").then(function (val) {
     t.equal(false, val);
     t.equal(1, n, "Ensure prepend is called");
     t.end();
@@ -1244,8 +1237,7 @@ test("TouchSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.touch("hello", 1024, function (err: Error | null, val) {
-    t.equal(null, err);
+  client.touch("hello", 1024).then(function (val) {
     t.equal(true, val);
     t.equal(1, n, "Ensure touch is called");
     t.end();
@@ -1267,10 +1259,9 @@ test("TouchKeyDNE", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.touch("hello", 1024, function (err: Error | null, val) {
-    t.equal(null, err);
+  client.touch("hello", 1024).then(function (val) {
     t.equal(false, val);
-    t.equal(1, n, "Ensure ptouch is called");
+    t.equal(1, n, "Ensure touch is called");
     t.end();
   });
 });
@@ -1321,8 +1312,6 @@ test("Very Large Client Seq", function (t) {
     t.equal(true, val);
     t.equal(1, n, "Ensure add is called");
   };
-  client.add("hello", "world", {}, assertor);
-  n = 0;
   return client.add("hello", "world", {}).then(function (success) {
     assertor(null, success);
   });
@@ -1368,9 +1357,6 @@ test("VersionSuccessful", function (t) {
     t.equal(n, 1, "Ensure version is called");
   };
 
-  client.version(assertor);
-  n = 0;
-
   return client.version().then(function (res) {
     assertor(null, res.value);
   });
@@ -1395,10 +1381,8 @@ tap.only("VersionError", function (t) {
     t.equal("This is an expected error.", err?.message);
   };
 
-  client.version(assertor);
-  return client.version().catch(function (err) {
+  return mustReject(t, client.version(), function (err) {
     assertor(err);
-    return true;
   });
 });
 
@@ -1423,8 +1407,6 @@ test("VersionAllSuccessful", function (t) {
     t.equal(null, err);
   };
 
-  client.versionAll(assertor);
-
   return client.versionAll().then(function (res) {
     assertor(null, res.values);
   });
@@ -1447,9 +1429,7 @@ tap.only("VersionAllSomeFailed", function (t) {
     t.equal("This is an expected error.", err?.message);
   };
 
-  client.versionAll(assertor);
-
-  return client.versionAll().catch(function (err) {
+  return mustReject(t, client.versionAll(), function (err) {
     assertor(err);
   });
 });
