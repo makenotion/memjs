@@ -52,7 +52,25 @@ function makeDummyServer(name: string) {
   };
 }
 
-test("GetSuccessful", function (t) {
+async function mustReject(
+  t: TapTestType,
+  promise: Promise<unknown>,
+  matcher: (error: Error) => any
+) {
+  let threwError: Error | undefined = undefined;
+  try {
+    await promise;
+  } catch (error) {
+    threwError = error;
+  }
+
+  t.assert(threwError, "Expected promise to be rejected");
+  if (threwError) {
+    return matcher(threwError);
+  }
+}
+
+test("GetSuccessful", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   const casToken = Buffer.from("cas data");
@@ -68,25 +86,19 @@ test("GetSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  const assertor = function (err: Error | null, val: MemJS.GetResult | null) {
-    if (!val) {
-      t.ok(val, "must return value");
-      return;
-    }
-    t.equal("world", val.value);
-    t.equal("flagshere", val.extras);
-    t.equal(casToken, val.cas);
-    t.equal(null, err);
-    t.equal(1, n, "Ensure get is called");
-  };
-  client.get("hello", assertor);
-  n = 0;
-  return client.get("hello").then(function (res) {
-    assertor(null, res);
-  });
+  const val = await client.get("hello");
+
+  if (!val) {
+    t.ok(val, "must return value");
+    return;
+  }
+  t.equal("world", val.value);
+  t.equal("flagshere", val.extras);
+  t.equal(casToken, val.cas);
+  t.equal(1, n, "Ensure get is called");
 });
 
-test("GetNotFound", function (t) {
+test("GetNotFound", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -99,19 +111,12 @@ test("GetNotFound", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  const assertor = function (err: Error | null, val: MemJS.GetResult | null) {
-    t.equal(null, val);
-    t.equal(1, n, "Ensure get is called");
-  };
-  client.get("hello", assertor);
-  n = 0;
-  return client.get("hello").then(function (res) {
-    assertor(null, res);
-    t.end();
-  });
+  const val = await client.get("hello");
+  t.equal(null, val);
+  t.equal(1, n, "Ensure get is called");
 });
 
-test("GetSerializer", function (t) {
+test("GetSerializer", async function (t) {
   let n = 0;
   let dn = 0;
   const dummyServer = makeDummyServer("dummyServer");
@@ -138,27 +143,19 @@ test("GetSerializer", function (t) {
       },
     },
   });
-  const assertor = function (err: Error | null, value: MemJS.GetResult | null) {
-    if (!value) {
-      t.ok(value, "must return value");
-      return;
-    }
-    t.equal("deserialized", value.value);
-    t.equal("flagshere", value.extras);
-    t.equal(casToken, value.cas);
-    t.equal(null, err);
-    t.equal(1, n, "Ensure get is called");
-    t.equal(1, dn, "Ensure deserialization is called once");
-  };
-  client.get("hello", assertor);
-  n = 0;
-  dn = 0;
-  return client.get("hello").then(function (res) {
-    assertor(null, res);
-  });
+  const value = await client.get("hello");
+  if (!value) {
+    t.ok(value, "must return value");
+    return;
+  }
+  t.equal("deserialized", value.value);
+  t.equal("flagshere", value.extras);
+  t.equal(casToken, value.cas);
+  t.equal(1, n, "Ensure get is called");
+  t.equal(1, dn, "Ensure deserialization is called once");
 });
 
-tap.only("GetMultiSuccessful_SingleBackend", function (t) {
+test("GetMultiSuccessful_SingleBackend", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -201,40 +198,28 @@ tap.only("GetMultiSuccessful_SingleBackend", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  const assertor = function (
-    err: Error | null,
-    result: MemJS.GetMultiResult | null
-  ) {
-    t.deepEqual(
-      {
-        hello1: {
-          value: "world1",
-          extras: "flagshere",
-          cas: Buffer.from("cas hello1"),
-        },
-        hello2: {
-          value: "world2",
-          extras: "flagshere",
-          cas: Buffer.from("cas hello2"),
-        },
-        hello3: {
-          value: "world3",
-          extras: "flagshere",
-          cas: Buffer.from("cas hello3"),
-        },
+  const result = await client.getMulti(["hello1", "hello2", "hello3"]);
+  t.deepEqual(
+    {
+      hello1: {
+        value: "world1",
+        extras: "flagshere",
+        cas: Buffer.from("cas hello1"),
       },
-      result
-    );
-    t.equal(null, err);
-    t.equal(1, n, "Ensure getMulti is called");
-  };
-  client.getMulti(["hello1", "hello2", "hello3"], assertor);
-  testAllCallbacksEmpty(t, dummyServer);
-
-  n = 0;
-  return client.getMulti(["hello1", "hello2", "hello3"]).then(function (res) {
-    assertor(null, res);
-  });
+      hello2: {
+        value: "world2",
+        extras: "flagshere",
+        cas: Buffer.from("cas hello2"),
+      },
+      hello3: {
+        value: "world3",
+        extras: "flagshere",
+        cas: Buffer.from("cas hello3"),
+      },
+    },
+    result
+  );
+  t.equal(1, n, "Ensure getMulti is called");
 });
 
 const DummyMultiGetFlags = "flagshere";
@@ -292,7 +277,7 @@ function makeDummyMultiGetServerResponder(
   return server;
 }
 
-test("GetMultiSuccessful_MultiBackend", function (t) {
+test("GetMultiSuccessful_MultiBackend", async function (t) {
   // the mappings from key to server were computer by just manually running the default hash on them
 
   const dummyServer1 = makeDummyMultiGetServerResponder(
@@ -314,51 +299,38 @@ test("GetMultiSuccessful_MultiBackend", function (t) {
   const servers = [dummyServer1, dummyServer2];
 
   const client = makeClient(servers);
+  const val = await client.getMulti(["hello1", "hello2", "hello3", "hello4"]);
 
-  const assertor = function (
-    err: Error | null,
-    val: MemJS.GetMultiResult | null
-  ) {
-    const expected: MemJS.GetMultiResult<
-      "hello1" | "hello2" | "hello3" | "hello4"
-    > = {
-      hello1: {
-        value: "world1",
-        extras: DummyMultiGetFlags,
-        cas: undefined,
-      },
-      hello2: {
-        value: "world2",
-        extras: DummyMultiGetFlags,
-        cas: undefined,
-      },
-      hello3: {
-        value: "world3",
-        extras: DummyMultiGetFlags,
-        cas: undefined,
-      },
-      hello4: {
-        value: "world4",
-        extras: DummyMultiGetFlags,
-        cas: undefined,
-      },
-    };
-    t.deepEqual(expected, val);
-    console.log(val);
-    t.equal(null, err);
+  const expected: MemJS.GetMultiResult<
+    "hello1" | "hello2" | "hello3" | "hello4"
+  > = {
+    hello1: {
+      value: "world1",
+      extras: DummyMultiGetFlags,
+      cas: undefined,
+    },
+    hello2: {
+      value: "world2",
+      extras: DummyMultiGetFlags,
+      cas: undefined,
+    },
+    hello3: {
+      value: "world3",
+      extras: DummyMultiGetFlags,
+      cas: undefined,
+    },
+    hello4: {
+      value: "world4",
+      extras: DummyMultiGetFlags,
+      cas: undefined,
+    },
   };
-  client.getMulti(["hello1", "hello2", "hello3", "hello4"], assertor);
+  t.deepEqual(expected, val);
   testAllCallbacksEmpty(t, dummyServer1);
   testAllCallbacksEmpty(t, dummyServer2);
-
-  return client
-    .getMulti(["hello1", "hello2", "hello3", "hello4"])
-    .then(function (res) {
-      assertor(null, res);
-    });
 });
 
-test("GetMultiSuccessful_MissingKeys_MultiBackend", function (t) {
+test("GetMultiSuccessful_MissingKeys_MultiBackend", async function (t) {
   // the mappings from key to server were computed by just manually running the default hash on them
   const dummyServer1 = makeDummyMultiGetServerResponder(
     t,
@@ -379,43 +351,31 @@ test("GetMultiSuccessful_MissingKeys_MultiBackend", function (t) {
   const servers = [dummyServer1, dummyServer2];
 
   const client = makeClient(servers);
+  const val = await client.getMulti(["hello1", "hello2", "hello3", "hello4"]);
 
-  const assertor = function (
-    err: Error | null,
-    val: MemJS.GetMultiResult | null
-  ) {
-    const expected: MemJS.GetMultiResult<"hello1" | "hello3" | "hello4"> = {
-      hello1: {
-        value: "world1",
-        extras: DummyMultiGetFlags,
-        cas: undefined,
-      },
-      hello3: {
-        value: "world3",
-        extras: DummyMultiGetFlags,
-        cas: undefined,
-      },
-      hello4: {
-        value: "world4",
-        extras: DummyMultiGetFlags,
-        cas: undefined,
-      },
-    };
-    t.deepEqual(expected, val);
-    t.equal(null, err);
+  const expected: MemJS.GetMultiResult<"hello1" | "hello3" | "hello4"> = {
+    hello1: {
+      value: "world1",
+      extras: DummyMultiGetFlags,
+      cas: undefined,
+    },
+    hello3: {
+      value: "world3",
+      extras: DummyMultiGetFlags,
+      cas: undefined,
+    },
+    hello4: {
+      value: "world4",
+      extras: DummyMultiGetFlags,
+      cas: undefined,
+    },
   };
-  client.getMulti(["hello1", "hello2", "hello3", "hello4"], assertor);
+  t.deepEqual(expected, val);
   testAllCallbacksEmpty(t, dummyServer1);
   testAllCallbacksEmpty(t, dummyServer2);
-
-  return client
-    .getMulti(["hello1", "hello2", "hello3", "hello4"])
-    .then(function (res) {
-      assertor(null, res);
-    });
 });
 
-test("GetMultiError_MultiBackend", function (t) {
+test("GetMultiError_MultiBackend", async function (t) {
   // the mappings from key to server were computed by just manually running the default hash on them
   const dummyServer1 = makeDummyMultiGetServerResponder(
     t,
@@ -443,23 +403,18 @@ test("GetMultiError_MultiBackend", function (t) {
 
   const client = makeClient(servers);
 
-  const assertor = function (err: Error | null) {
-    t.notEqual(null, err);
-    t.equal("This is an expected error.", err?.message);
-  };
-  client.getMulti(["hello1", "hello2", "hello3", "hello4"], assertor);
-  testAllCallbacksEmpty(t, dummyServer1);
-  testAllCallbacksEmpty(t, dummyServer2);
-
-  return client
-    .getMulti(["hello1", "hello2", "hello3", "hello4"])
-    .catch(function (err) {
-      assertor(err);
-      return true;
-    });
+  await mustReject(
+    t,
+    client.getMulti(["hello1", "hello2", "hello3", "hello4"]),
+    (error) => {
+      t.equal("This is an expected error.", error.message);
+      testAllCallbacksEmpty(t, dummyServer1);
+      testAllCallbacksEmpty(t, dummyServer2);
+    }
+  );
 });
 
-test("GetMultiSuccessfulWithMissingKeys", function (t) {
+test("GetMultiSuccessfulWithMissingKeys", async function (t) {
   const dummyServer = makeDummyMultiGetServerResponder(t, {
     hello1: "world1",
     hello2: undefined,
@@ -471,26 +426,23 @@ test("GetMultiSuccessfulWithMissingKeys", function (t) {
     err: Error | null,
     val: MemJS.GetMultiResult | null
   ) {
-    const expected: MemJS.GetMultiResult<"hello1" | "hello3"> = {
-      hello1: {
-        value: "world1",
-        extras: DummyMultiGetFlags,
-        cas: undefined,
-      },
-      hello3: {
-        value: "world3",
-        extras: DummyMultiGetFlags,
-        cas: undefined,
-      },
-    };
-    t.deepEqual(expected, val);
     t.equal(null, err);
   };
-  client.getMulti(["hello1", "hello2", "hello3"], assertor);
+  const val = await client.getMulti(["hello1", "hello2", "hello3"]);
+  const expected: MemJS.GetMultiResult<"hello1" | "hello3"> = {
+    hello1: {
+      value: "world1",
+      extras: DummyMultiGetFlags,
+      cas: undefined,
+    },
+    hello3: {
+      value: "world3",
+      extras: DummyMultiGetFlags,
+      cas: undefined,
+    },
+  };
+  t.deepEqual(expected, val);
   testAllCallbacksEmpty(t, dummyServer);
-  return client.getMulti(["hello1", "hello2", "hello3"]).then(function (res) {
-    assertor(null, res);
-  });
 });
 
 test("GetMultiError", function (t) {
@@ -528,18 +480,18 @@ test("GetMultiError", function (t) {
   const client = makeClient([dummyServer]);
   const assertor = function (err: Error | null) {
     t.notEqual(null, err);
+    testAllCallbacksEmpty(t, dummyServer);
     t.equal("This is an expected error.", err?.message);
   };
-  client.getMulti(["hello1", "hello2", "hello3"], assertor);
-  testAllCallbacksEmpty(t, dummyServer);
 
-  return client.getMulti(["hello1", "hello2", "hello3"]).catch(function (err) {
-    assertor(err);
-    return true;
-  });
+  return mustReject(
+    t,
+    client.getMulti(["hello1", "hello2", "hello3"]),
+    assertor
+  );
 });
 
-test("SetSuccessful", function (t) {
+test("SetSuccessful", async function (t) {
   const casToken = Buffer.from("cas toke");
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
@@ -555,21 +507,13 @@ test("SetSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  const assertor = function (err: Error | null, val: boolean | null) {
-    t.equal(true, val);
-    t.equal(null, err);
-    t.equal(1, n, "Ensure set is called");
-  };
-  client.set("hello", "world", { cas: casToken }, assertor);
+  const val = await client.set("hello", "world", { cas: casToken });
+  t.equal(true, val);
+  t.equal(1, n, "Ensure set is called");
   n = 0;
-  return client
-    .set("hello", "world", { cas: casToken })
-    .then(function (success) {
-      assertor(null, success);
-    });
 });
 
-test("SetSuccessfulWithoutOption", function (t) {
+test("SetSuccessfulWithoutOption", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -583,36 +527,12 @@ test("SetSuccessfulWithoutOption", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.set("hello", "world", {}, function (err: Error | null, val) {
-    t.equal(true, val);
-    t.equal(null, err);
-    t.equal(1, n, "Ensure set is called");
-    t.end();
-  });
+  const val = await client.set("hello", "world");
+  t.equal(true, val);
+  t.equal(1, n, "Ensure set is called");
 });
 
-test("SetPromiseWithoutOption", function (t) {
-  let n = 0;
-  const dummyServer = makeDummyServer("dummyServer");
-  dummyServer.write = function (requestBuf) {
-    const request = parseMessage(requestBuf);
-    t.equal("hello", request.key.toString());
-    t.equal("world", request.val.toString());
-    n += 1;
-    dummyServer.respond({
-      header: { status: 0, opaque: request.header.opaque },
-    });
-  };
-
-  const client = makeClient([dummyServer]);
-  return client.set("hello", "world").then(function (val) {
-    t.equal(true, val);
-    t.equal(1, n, "Ensure set is called");
-    t.end();
-  });
-});
-
-test("SetWithExpiration", function (t) {
+test("SetWithExpiration", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -627,15 +547,12 @@ test("SetWithExpiration", function (t) {
   };
 
   const client = makeClient([dummyServer], { expires: 1024 });
-  client.set("hello", "world", {}, function (err: Error | null, val) {
-    t.equal(null, err);
-    t.equal(true, val);
-    t.equal(1, n, "Ensure set is called");
-    t.end();
-  });
+  const val = await client.set("hello", "world", {});
+  t.equal(true, val);
+  t.equal(1, n, "Ensure set is called");
 });
 
-test("SetCASUnsuccessful", (t) => {
+test("SetCASUnsuccessful", async (t) => {
   let n = 0;
   const casToken = "verycool";
   const dummyServer = makeDummyServer("dummyServer");
@@ -654,17 +571,11 @@ test("SetCASUnsuccessful", (t) => {
   };
 
   const client = makeClient([dummyServer]);
-  const assertor = function (err: Error | null, val: boolean | null) {
-    t.equal(false, val, "Returns false on CAS failure");
-    t.equal(1, n, "Ensure set is called");
-  };
-  client.set("hello", "world", { cas: Buffer.from(casToken) }, assertor);
-  n = 0;
-  return client
-    .set("hello", "world", { cas: Buffer.from(casToken) })
-    .then(function (val) {
-      assertor(null, val);
-    });
+  const val = await client.set("hello", "world", {
+    cas: Buffer.from(casToken),
+  });
+  t.equal(false, val, "Returns false on CAS failure");
+  t.equal(1, n, "Ensure set is called");
 });
 
 test("SetUnsuccessful", function (t) {
@@ -686,9 +597,7 @@ test("SetUnsuccessful", function (t) {
     t.equal("MemJS SET: " + constants.responseStatusToString(3), err?.message);
     t.equal(1, n, "Ensure set is called");
   };
-  client.set("hello", "world", {}, assertor);
-  n = 0;
-  return client.set("hello", "world", {}).catch(function (err) {
+  return mustReject(t, client.set("hello", "world", {}), function (err) {
     assertor(err, null);
   });
 });
@@ -708,10 +617,9 @@ test("SetError", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.set("hello", "world", {}, function (err: Error | null, val) {
+  mustReject(t, client.set("hello", "world"), function (err: Error | null) {
     t.notEqual(null, err);
     t.equal("This is an expected error.", err?.message);
-    t.equal(null, val);
     t.equal(2, n, "Ensure set is retried once");
     t.end();
   });
@@ -734,7 +642,7 @@ test("SetError", function (t) {
   };
 
   const client = makeClient([dummyServer], { retries: 2 });
-  client.set("hello", "world", {}, function (err /*, val */) {
+  mustReject(t, client.set("hello", "world", {}), function (err /*, val */) {
     t.equal(2, n, "Ensure set is retried once");
     t.ok(err, "Ensure callback called with error");
     t.equal("This is an expected error.", err?.message);
@@ -756,14 +664,14 @@ test("SetErrorConcurrent", function (t) {
   };
 
   const client = makeClient([dummyServer], { retries: 2 });
-  client.set("hello", "world", {}, function (err /*, val */) {
+  mustReject(t, client.set("hello", "world", {}), function (err /*, val */) {
     t.ok(err, "Ensure callback called with error");
     t.equal("This is an expected error.", err?.message);
     callbn1 += 1;
     done();
   });
 
-  client.set("foo", "bar", {}, function (err /*, val */) {
+  mustReject(t, client.set("foo", "bar", {}), function (err /*, val */) {
     t.ok(err, "Ensure callback called with error");
     t.equal("This is an expected error.", err?.message);
     callbn2 += 1;
@@ -783,7 +691,7 @@ test("SetErrorConcurrent", function (t) {
   })();
 });
 
-test("SetUnicode", function (t) {
+test("SetUnicode", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -797,11 +705,9 @@ test("SetUnicode", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.set("hello", "éééoào", {}, function (err: Error | null, val) {
-    t.equal(true, val);
-    t.equal(1, n, "Ensure set is called");
-    t.end();
-  });
+  const val = await client.set("hello", "éééoào", {});
+  t.equal(true, val);
+  t.equal(1, n, "Ensure set is called");
 });
 
 test("SetSerialize", function (t) {
@@ -835,15 +741,12 @@ test("SetSerialize", function (t) {
     t.equal(1, n, "Ensure set is called");
     t.equal(1, sn, "Ensure serialization is called once");
   };
-  client.set("hello", "world", {}, assertor);
-  n = 0;
-  sn = 0;
-  return client.set("hello", "world", {}).catch(function (err) {
+  return mustReject(t, client.set("hello", "world", {}), function (err) {
     assertor(err, null);
   });
 });
 
-test("AddSuccessful", function (t) {
+test("AddSuccessful", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -858,19 +761,12 @@ test("AddSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer], { expires: 1024 });
-  const assertor = function (err: Error | null, val: boolean | null) {
-    t.equal(null, err);
-    t.equal(true, val);
-    t.equal(1, n, "Ensure add is called");
-  };
-  client.add("hello", "world", {}, assertor);
-  n = 0;
-  return client.add("hello", "world", {}).then(function (success) {
-    assertor(null, success);
-  });
+  const val = await client.add("hello", "world", {});
+  t.equal(true, val);
+  t.equal(1, n, "Ensure add is called");
 });
 
-test("AddSuccessfulWithoutOption", function (t) {
+test("AddSuccessfulWithoutOption", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -885,15 +781,12 @@ test("AddSuccessfulWithoutOption", function (t) {
   };
 
   const client = makeClient([dummyServer], { expires: 1024 });
-  client.add("hello", "world", {}, function (err: Error | null, val) {
-    t.equal(null, err);
-    t.equal(true, val);
-    t.equal(1, n, "Ensure add is called");
-    t.end();
-  });
+  const val = await client.add("hello", "world", {});
+  t.equal(true, val);
+  t.equal(1, n, "Ensure add is called");
 });
 
-test("AddKeyExists", function (t) {
+test("AddKeyExists", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -907,15 +800,12 @@ test("AddKeyExists", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.add("hello", "world", {}, function (err: Error | null, val) {
-    t.equal(null, err);
-    t.equal(false, val);
-    t.equal(1, n, "Ensure add is called");
-    t.end();
-  });
+  const val = await client.add("hello", "world", {});
+  t.equal(false, val);
+  t.equal(1, n, "Ensure add is called");
 });
 
-test("AddSerializer", function (t) {
+test("AddSerializer", async function (t) {
   let n = 0;
   let sn = 0;
   const dummyServer = makeDummyServer("dummyServer");
@@ -945,18 +835,10 @@ test("AddSerializer", function (t) {
       },
     },
   });
-  const assertor = function (err: Error | null, val: boolean | null) {
-    t.equal(null, err);
-    t.equal(true, val);
-    t.equal(1, n, "Ensure add is called");
-    t.equal(1, sn, "Ensure serialization is called once");
-  };
-  client.add("hello", "world", {}, assertor);
-  n = 0;
-  sn = 0;
-  return client.add("hello", "world", {}).then(function (success) {
-    assertor(null, success);
-  });
+  const val = await client.add("hello", "world", {});
+  t.equal(true, val);
+  t.equal(1, n, "Ensure add is called");
+  t.equal(1, sn, "Ensure serialization is called once");
 });
 
 test("ReplaceSuccessful", function (t) {
@@ -1176,29 +1058,31 @@ test("IncrementSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.increment("number-increment-test", 5, {}, function (
-    err: Error | null,
-    success,
-    val
-  ) {
-    callbn += 1;
-    t.equal(true, success);
-    t.equal(6, val);
-    t.equal(null, err);
-    done();
-  });
+  client.increment(
+    "number-increment-test",
+    5,
+    {},
+    function (err: Error | null, success, val) {
+      callbn += 1;
+      t.equal(true, success);
+      t.equal(6, val);
+      t.equal(null, err);
+      done();
+    }
+  );
 
-  client.increment("number-increment-test", 5, { initial: 3 }, function (
-    err: Error | null,
-    success,
-    val
-  ) {
-    callbn += 1;
-    t.equal(true, success);
-    t.equal(6, val);
-    t.equal(null, err);
-    done();
-  });
+  client.increment(
+    "number-increment-test",
+    5,
+    { initial: 3 },
+    function (err: Error | null, success, val) {
+      callbn += 1;
+      t.equal(true, success);
+      t.equal(6, val);
+      t.equal(null, err);
+      done();
+    }
+  );
 
   const done = (function () {
     let called = 0;
@@ -1237,17 +1121,18 @@ test("DecrementSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.decrement("number-decrement-test", 5, {}, function (
-    err: Error | null,
-    success,
-    val
-  ) {
-    t.equal(true, success);
-    t.equal(6, val);
-    t.equal(null, err);
-    t.equal(1, n, "Ensure decr is called");
-    t.end();
-  });
+  client.decrement(
+    "number-decrement-test",
+    5,
+    {},
+    function (err: Error | null, success, val) {
+      t.equal(true, success);
+      t.equal(6, val);
+      t.equal(null, err);
+      t.equal(1, n, "Ensure decr is called");
+      t.end();
+    }
+  );
 });
 
 test("DecrementSuccessfulWithoutOption", function (t) {
@@ -1275,17 +1160,18 @@ test("DecrementSuccessfulWithoutOption", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.decrement("number-decrement-test", 5, {}, function (
-    err: Error | null,
-    success,
-    val
-  ) {
-    t.equal(true, success);
-    t.equal(6, val);
-    t.equal(null, err);
-    t.equal(1, n, "Ensure decr is called");
-    t.end();
-  });
+  client.decrement(
+    "number-decrement-test",
+    5,
+    {},
+    function (err: Error | null, success, val) {
+      t.equal(true, success);
+      t.equal(6, val);
+      t.equal(null, err);
+      t.equal(1, n, "Ensure decr is called");
+      t.end();
+    }
+  );
 });
 
 test("AppendSuccessful", function (t) {
