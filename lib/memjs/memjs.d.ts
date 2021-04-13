@@ -114,31 +114,25 @@ declare class Client<Value = MaybeBuffer, Extras = MaybeBuffer> {
      * Retrieves the value at the given key in memcache.
      */
     get(key: string): Promise<GetResult<Value, Extras> | null>;
-    get(key: string, callback: (error: Error | null, result: GetResult<Value, Extras> | null) => void): void;
     /** Build a pipelined get multi request by sending one GETKQ for each key (quiet, meaning it won't respond if the value is missing) followed by a no-op to force a response (and to give us a sentinel response that the pipeline is done)
      *
      * cf https://github.com/couchbase/memcached/blob/master/docs/BinaryProtocol.md#0x0d-getkq-get-with-key-quietly
      */
     _buildGetMultiRequest(keys: string[]): Buffer;
     /** Executing a pipelined (multi) get against a single server. This is a private implementation detail of getMulti. */
-    _getMultiToServer<Keys extends string>(serv: Server, keys: Keys[], callback: (error: Error | null, values: GetMultiResult<Keys, Value, Extras> | null) => void): void;
+    _getMultiToServer<Keys extends string>(serv: Server, keys: Keys[]): Promise<GetMultiResult<Keys, Value, Extras>>;
     /**
      * Retrievs the value at the given keys in memcached. Returns a map from the
      * requested keys to results, or null if the key was not found.
      */
     getMulti<Keys extends string>(keys: Keys[]): Promise<GetMultiResult<Keys, Value, Extras> | null>;
-    getMulti<Keys extends string>(keys: Keys[], callback: (error: Error | null, value: GetMultiResult<Keys, Value, Extras> | null) => void): void;
     /**
-     * Sets the given _key_ to _value_.
+     * Sets `key` to `value`.
      */
     set(key: string, value: Value, options?: {
         expires?: number;
         cas?: CASToken;
     }): Promise<boolean | null>;
-    set(key: string, value: Value, options: {
-        expires?: number;
-        cas?: CASToken;
-    }, callback: (error: Error | null, success: boolean | null) => void): void;
     /**
      * ADD
      *
@@ -148,138 +142,57 @@ declare class Client<Value = MaybeBuffer, Extras = MaybeBuffer> {
      * The options dictionary takes:
      * * _expires_: overrides the default expiration (see `Client.create`) for this
      *              particular key-value pair.
-     *
-     * The callback signature is:
-     *
-     *     callback(err, success)
-     * @param key
-     * @param value
-     * @param options
-     * @param callback
      */
     add(key: string, value: Value, options?: {
         expires?: number;
     }): Promise<boolean | null>;
-    add(key: string, value: Value, options: {
-        expires?: number;
-    }, callback: (error: Error | null, success: boolean | null) => void): void;
     /**
-     * REPLACE
-     *
      * Replaces the given _key_ and _value_ to memcache. The operation only succeeds
      * if the key is already present.
-     *
-     * The options dictionary takes:
-     * * _expires_: overrides the default expiration (see `Client.create`) for this
-     *              particular key-value pair.
-     *
-     * The callback signature is:
-     *
-     *     callback(err, success)
-     * @param key
-     * @param value
-     * @param options
-     * @param callback
      */
     replace(key: string, value: Value, options?: {
         expires?: number;
-    }, callback?: (error: Error | null, success: boolean | null) => void): Promise<boolean | null> | void;
+    }): Promise<boolean | null>;
     /**
-     * DELETE
-     *
      * Deletes the given _key_ from memcache. The operation only succeeds
      * if the key is already present.
-     *
-     * The callback signature is:
-     *
-     *     callback(err, success)
-     * @param key
-     * @param callback
      */
     delete(key: string): Promise<boolean>;
-    delete(key: string, callback: (err: Error | null, success: boolean | null) => void): void;
     /**
-     * INCREMENT
-     *
      * Increments the given _key_ in memcache.
-     *
-     * The options dictionary takes:
-     * * _initial_: the value for the key if not already present, defaults to 0.
-     * * _expires_: overrides the default expiration (see `Client.create`) for this
-     *              particular key-value pair.
-     *
-     * The callback signature is:
-     *
-     *     callback(err, success, value)
-     * @param key
-     * @param amount
-     * @param options
-     * @param callback
      */
-    increment(key: string, amount: number, options: {
+    increment(key: string, amount: number, options?: {
         initial?: number;
         expires?: number;
     }): Promise<{
         value: number | null;
         success: boolean | null;
     }>;
-    increment(key: string, amount: number, options: {
-        initial?: number;
-        expires?: number;
-    }, callback: (error: Error | null, success: boolean | null, value?: number | null) => void): void;
-    decrement(key: string, amount: number, options: {
-        initial?: number;
-        expires?: number;
-    }): Promise<{
-        value: number | null;
-        success: boolean | null;
-    }>;
-    decrement(key: string, amount: number, options: {
-        initial?: number;
-        expires?: number;
-    }, callback: (error: Error | null, success: boolean | null, value?: number | null) => void): void;
     /**
-     * APPEND
-     *
+     * Decrements the given `key` in memcache.
+     */
+    decrement(key: string, amount: number, options: {
+        initial?: number;
+        expires?: number;
+    }): Promise<{
+        value: number | null;
+        success: boolean | null;
+    }>;
+    /**
      * Append the given _value_ to the value associated with the given _key_ in
-     * memcache. The operation only succeeds if the key is already present. The
-     * callback signature is:
-     *
-     *     callback(err, success)
-     * @param key
-     * @param value
-     * @param callback
+     * memcache. The operation only succeeds if the key is already present.
      */
     append(key: string, value: Value): Promise<boolean>;
-    append(key: string, value: Value, callback: (err: Error | null, success: boolean | null) => void): void;
     /**
-     * PREPEND
-     *
      * Prepend the given _value_ to the value associated with the given _key_ in
-     * memcache. The operation only succeeds if the key is already present. The
-     * callback signature is:
-     *
-     *     callback(err, success)
-     * @param key
-     * @param value
-     * @param callback
+     * memcache. The operation only succeeds if the key is already present.
      */
     prepend(key: string, value: Value): Promise<boolean>;
-    prepend(key: string, value: Value, callback: (err: Error | null, success: boolean | null) => void): void;
     /**
-     * TOUCH
-     *
      * Touch sets an expiration value, given by _expires_, on the given _key_ in
-     * memcache. The operation only succeeds if the key is already present. The
-     * callback signature is:
-     *
-     *     callback(err, success)
-     * @param key
-     * @param expires
-     * @param callback
+     * memcache. The operation only succeeds if the key is already present.
      */
     touch(key: string, expires: number): Promise<boolean>;
-    touch(key: string, expires: number, callback: (err: Error | null, success: boolean | null) => void): void;
     /**
      * FLUSH
      *
@@ -348,40 +261,24 @@ declare class Client<Value = MaybeBuffer, Extras = MaybeBuffer> {
     _version(server: Server): Promise<{
         value: Value | null;
     }>;
-    _version(server: Server, callback: (error: Error | null, value: Value | null) => void): void;
     /**
-     * VERSION
-     *
      * Request the server version from the "first" server in the backend pool.
-     *
      * The server responds with a packet containing the version string in the body with the following format: "x.y.z"
      */
     version(): Promise<{
         value: Value | null;
     }>;
-    version(callback: (error: Error | null, value: Value | null) => void): void;
     /**
-     * VERSION-ALL
-     *
      * Retrieves the server version from all the servers
      * in the backend pool, errors if any one of them has an
      * error
-     *
-     * The callback signature is:
-     *
-     *     callback(err, value, flags)
-     *
-     * @param keys
-     * @param callback
      */
     versionAll(): Promise<{
         values: Record<string, Value | null>;
     }>;
-    versionAll(callback: (err: Error | null, values: Record<string, Value | null> | null) => void): void;
     /**
-     * CLOSE
-     *
      * Closes (abruptly) connections to all the servers.
+     * @see this.quit
      */
     close(): void;
     /**
@@ -391,12 +288,12 @@ declare class Client<Value = MaybeBuffer, Extras = MaybeBuffer> {
      * @param {buffer} request a buffer containing the request
      * @param {number} seq the sequence number of the operation. It is used to pin the callbacks
                            to a specific operation and should never change during a `perform`.
-     * @param {*} callback a callback invoked when a response is received or the request fails
-     * @param {*} retries number of times to retry request on failure
+     * @param {number?} retries number of times to retry request on failure
      */
-    perform(key: string, request: Buffer, seq: number, callback: ResponseOrErrorCallback, retries?: number): void;
+    perform(key: string, request: Buffer, seq: number, retries?: number): Promise<Message>;
     performOnServer(server: Server, request: Buffer, seq: number, callback: ResponseOrErrorCallback, retries?: number): void;
     incrSeq(): void;
+    private createAndLogError;
     /**
      * Log an error to the logger, then return the error.
      * If a callback is given, call it with callback(error, null).
