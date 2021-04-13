@@ -16,7 +16,7 @@
     "url": "git://github.com/memcachier/memjs.git"
   },
   "engines": {
-    "node": ">=0.10.0"
+    "node": ">=12"
   },
   "main": "./lib/memjs/memjs",
   "directories": {
