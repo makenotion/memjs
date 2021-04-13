@@ -841,7 +841,7 @@ test("AddSerializer", async function (t) {
   t.equal(1, sn, "Ensure serialization is called once");
 });
 
-test("ReplaceSuccessful", function (t) {
+test("ReplaceSuccessful", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -858,22 +858,13 @@ test("ReplaceSuccessful", function (t) {
   const client = makeClient([dummyServer], { expires: 1024 });
   const assertor = function (err: Error | null, val: boolean | null) {
     t.equal(null, err);
-    t.equal(true, val);
-    t.equal(1, n, "Ensure replace is called");
   };
-  client.replace("hello", "world", {}, assertor);
-  n = 0;
-  const replaceP = client.replace("hello", "world", {});
-  if (!replaceP) {
-    return t.true(replaceP);
-  } else {
-    return replaceP.then(function (success) {
-      assertor(null, success);
-    });
-  }
+  const val = await client.replace("hello", "world", {});
+  t.equal(true, val);
+  t.equal(1, n, "Ensure replace is called");
 });
 
-test("ReplaceSuccessfulWithoutOption", function (t) {
+test("ReplaceSuccessfulWithoutOption", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -888,15 +879,12 @@ test("ReplaceSuccessfulWithoutOption", function (t) {
   };
 
   const client = makeClient([dummyServer], { expires: 1024 });
-  client.replace("hello", "world", {}, function (err: Error | null, val) {
-    t.equal(null, err);
-    t.equal(true, val);
-    t.equal(1, n, "Ensure replace is called");
-    t.end();
-  });
+  const val = await client.replace("hello", "world", {});
+  t.equal(true, val);
+  t.equal(1, n, "Ensure replace is called");
 });
 
-test("ReplaceKeyDNE", function (t) {
+test("ReplaceKeyDNE", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -910,15 +898,12 @@ test("ReplaceKeyDNE", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.replace("hello", "world", {}, function (err: Error | null, val) {
-    t.equal(null, err);
-    t.equal(false, val);
-    t.equal(1, n, "Ensure replace is called");
-    t.end();
-  });
+  const val = await client.replace("hello", "world", {});
+  t.equal(false, val);
+  t.equal(1, n, "Ensure replace is called");
 });
 
-test("DeleteSuccessful", function (t) {
+test("DeleteSuccessful", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -931,19 +916,12 @@ test("DeleteSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  const assertor = function (err: Error | null, val: boolean | null) {
-    t.equal(null, err);
-    t.equal(true, val);
-    t.equal(1, n, "Ensure delete is called");
-  };
-  client.delete("hello", assertor);
-  n = 0;
-  return client.delete("hello").then(function (success) {
-    assertor(null, success);
-  });
+  const val = await client.delete("hello");
+  t.equal(true, val);
+  t.equal(1, n, "Ensure delete is called");
 });
 
-test("DeleteKeyDNE", function (t) {
+test("DeleteKeyDNE", async function (t) {
   let n = 0;
   const dummyServer = makeDummyServer("dummyServer");
   dummyServer.write = function (requestBuf) {
@@ -956,12 +934,9 @@ test("DeleteKeyDNE", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.delete("hello", function (err: Error | null, val) {
-    t.equal(null, err);
-    t.equal(false, val);
-    t.equal(1, n, "Ensure delete is called");
-    t.end();
-  });
+  const val = await client.delete("hello");
+  t.equal(false, val);
+  t.equal(1, n, "Ensure delete is called");
 });
 
 test("Flush", function (t) {
@@ -1058,31 +1033,23 @@ test("IncrementSuccessful", function (t) {
   };
 
   const client = makeClient([dummyServer]);
-  client.increment(
-    "number-increment-test",
-    5,
-    {},
-    function (err: Error | null, success, val) {
+  client
+    .increment("number-increment-test", 5, {})
+    .then(function ({ success, value: val }) {
       callbn += 1;
       t.equal(true, success);
       t.equal(6, val);
-      t.equal(null, err);
       done();
-    }
-  );
+    });
 
-  client.increment(
-    "number-increment-test",
-    5,
-    { initial: 3 },
-    function (err: Error | null, success, val) {
+  client
+    .increment("number-increment-test", 5, { initial: 3 })
+    .then(function ({ success, value: val }) {
       callbn += 1;
       t.equal(true, success);
       t.equal(6, val);
-      t.equal(null, err);
       done();
-    }
-  );
+    });
 
   const done = (function () {
     let called = 0;
