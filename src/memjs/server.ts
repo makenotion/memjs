@@ -37,7 +37,8 @@ export class Server extends events.EventEmitter {
   host: string;
   port: string | number | undefined;
   connected: boolean;
-  timeoutSet: boolean;
+  connectionTimeoutSet: boolean;
+  commandTimeoutId: NodeJS.Timeout | undefined;
   connectCallbacks: OnConnectCallback[];
   responseCallbacks: { [seq: string]: OnResponseCallback };
   requestTimeouts: number[];
@@ -61,7 +62,8 @@ export class Server extends events.EventEmitter {
     this.host = host;
     this.port = port;
     this.connected = false;
-    this.timeoutSet = false;
+    this.connectionTimeoutSet = false;
+    this.commandTimeoutId = undefined;
     this.connectCallbacks = [];
     this.responseCallbacks = {};
     this.requestTimeouts = [];
@@ -121,7 +123,8 @@ export class Server extends events.EventEmitter {
     // reset all states except host, port, options, username, password
     this.responseBuffer = Buffer.from([]);
     this.connected = false;
-    this.timeoutSet = false;
+    this.connectionTimeoutSet = false;
+    this.commandTimeoutId = undefined;
     this.connectCallbacks = [];
     this.responseCallbacks = {};
     this.requestTimeouts = [];
@@ -199,7 +202,7 @@ export class Server extends events.EventEmitter {
               self.connected = true;
               // cancel connection timeout
               self._socket.setTimeout(0);
-              self.timeoutSet = false;
+              self.connectionTimeoutSet = false;
               // run actual request(s)
               go(self._socket);
               self.connectCallbacks.forEach(function (cb) {
@@ -234,19 +237,23 @@ export class Server extends events.EventEmitter {
         }
         self.connected = false;
         self.responseBuffer = Buffer.from([]);
-        if (self.timeoutSet) {
+        if (self.connectionTimeoutSet) {
           self._socket?.setTimeout(0);
-          self.timeoutSet = false;
+          self.connectionTimeoutSet = false;
+        }
+        if (self.commandTimeoutId !== undefined) {
+          clearTimeout(self.commandTimeoutId);
+          self.commandTimeoutId = undefined;
         }
         self._socket = undefined;
       });
 
       // setup connection timeout handler
-      self.timeoutSet = true;
+      self.connectionTimeoutSet = true;
       self._socket.setTimeout(
         self.options.conntimeout * 1000,
         function (this: net.Socket) {
-          self.timeoutSet = false;
+          self.connectionTimeoutSet = false;
           if (!self.connected) {
             this.end();
             self._socket = undefined;
@@ -275,11 +282,10 @@ export class Server extends events.EventEmitter {
     this.sock(false, function (s) {
       s.write(blob);
       self.requestTimeouts.push(timestamp() + deadline);
-      if (!self.timeoutSet) {
-        self.timeoutSet = true;
-        s.setTimeout(deadline, function (this: net.Socket) {
-          timeoutHandler(self, this);
-        });
+      if (self.commandTimeoutId === undefined) {
+        self.commandTimeoutId = setTimeout(function () {
+          timeoutHandler(self, s);
+        }, deadline);
       }
     });
   }
@@ -313,7 +319,7 @@ export class Server extends events.EventEmitter {
 const timeoutHandler = function (server: Server, sock: net.Socket) {
   if (server.requestTimeouts.length === 0) {
     // nothing active
-    server.timeoutSet = false;
+    server.commandTimeoutId = undefined;
     return;
   }
 
@@ -327,8 +333,8 @@ const timeoutHandler = function (server: Server, sock: net.Socket) {
   } else {
     // no timeout! Setup next one.
     const deadline = soonestTimeout - now;
-    sock.setTimeout(deadline, function () {
+    server.commandTimeoutId = setTimeout(function () {
       timeoutHandler(server, sock);
-    });
+    }, deadline);
   }
 };
