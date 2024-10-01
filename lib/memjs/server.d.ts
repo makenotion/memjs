@@ -26,7 +26,8 @@ export declare class Server extends events.EventEmitter {
     host: string;
     port: string | number | undefined;
     connected: boolean;
-    timeoutSet: boolean;
+    connectionTimeoutSet: boolean;
+    commandTimeoutId: NodeJS.Timeout | undefined;
     connectCallbacks: OnConnectCallback[];
     responseCallbacks: {
         [seq: string]: OnResponseCallback;
