@@ -15,9 +15,9 @@ jobs:
         node-version: [12.x]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
+      uses: actions/setup-node@b6651e20e530d6e6b845a9828606779e89f5529c # v1
       with:
         node-version: ${{ matrix.node-version }}
     - run: npm ci
